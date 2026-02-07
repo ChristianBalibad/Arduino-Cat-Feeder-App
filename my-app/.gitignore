@@ -32,6 +32,10 @@ yarn-error.*
 
 # local env files
 .env*.local
+.env
+
+# Supabase (copy lib/config.example.ts to lib/config.ts and fill in)
+lib/config.ts
 
 # typescript
 *.tsbuildinfo

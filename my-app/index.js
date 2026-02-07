@@ -1,3 +1,14 @@
+import { LogBox } from 'react-native';
+
+LogBox.ignoreLogs(['props.pointerEvents is deprecated']);
+
+const deprecationMessage = 'props.pointerEvents is deprecated';
+const originalWarn = console.warn;
+console.warn = (...args) => {
+  if (args[0] && String(args[0]).includes(deprecationMessage)) return;
+  originalWarn.apply(console, args);
+};
+
 import { registerRootComponent } from 'expo';
 
 import App from './App';
