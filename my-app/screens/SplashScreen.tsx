@@ -4,22 +4,30 @@ import { theme } from '../lib/theme';
 
 export default function SplashScreen() {
   const opacity = useRef(new Animated.Value(0)).current;
+  const scale = useRef(new Animated.Value(0.9)).current;
 
   useEffect(() => {
-    Animated.timing(opacity, {
-      toValue: 1,
-      duration: 400,
-      useNativeDriver: true,
-    }).start();
-  }, [opacity]);
+    Animated.parallel([
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scale, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [opacity, scale]);
 
   return (
     <Animated.View style={[styles.container, { backgroundColor: theme.background, opacity }]}>
-      <View style={styles.content}>
+      <Animated.View style={[styles.content, { transform: [{ scale }] }]}>
         <View style={[styles.logo, { backgroundColor: theme.primary }]} />
         <Text style={[styles.title, { color: theme.text }]}>Cat Feeder</Text>
-        <Text style={[styles.subtitle, { color: theme.textMuted }]}>Analytics</Text>
-      </View>
+        <Text style={[styles.subtitle, { color: theme.textMuted }]}>Live monitoring</Text>
+      </Animated.View>
       <View style={styles.loader}>
         <View style={[styles.loaderDot, { backgroundColor: theme.primary }]} />
         <View style={[styles.loaderDot, { backgroundColor: theme.primaryLight }]} />
@@ -39,20 +47,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logo: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 72,
+    height: 72,
+    borderRadius: 20,
     marginBottom: 20,
   },
   title: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '700',
-    letterSpacing: 0.5,
+    letterSpacing: -0.5,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     marginTop: 6,
-    letterSpacing: 1,
+    letterSpacing: 0.5,
   },
   loader: {
     position: 'absolute',
@@ -62,10 +70,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loaderDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     marginHorizontal: 4,
-    opacity: 0.8,
+    opacity: 0.7,
   },
 });
