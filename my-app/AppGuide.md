@@ -73,99 +73,92 @@ Content-Type: application/json
 
 ## Step 4: What the ESP sends
 
-### Food level (every 30 seconds)
+All requests: add headers `apikey`, `Authorization: Bearer (key)`, `Content-Type: application/json`.
 
-Send the distance from ultrasonic sensor in cm.
+| When | Method | URL | Body |
+|------|--------|-----|------|
+| Every 30s | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.food_level` | `{"distance_cm": 8.5}` |
+| Every 30s | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.weight` | `{"weight_grams": 95.2}` |
+| When PIR detects | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.motion` | `{"last_motion_at": "2025-02-15T14:30:00Z"}` |
+| Every few sec | GET | `{URL}/rest/v1/feed_commands?limit=1` | — |
+| When feeder runs | POST | `{URL}/rest/v1/feeding_events` | `{"portions": 1}` |
+| After feeder runs | DELETE | `{URL}/rest/v1/feed_commands?id=eq.{id}` | — |
 
-**Example request:**
-```
-PATCH https://abcdefgh.supabase.co/rest/v1/sensor_states?sensor=eq.food_level
-
-Headers: apikey, Authorization, Content-Type
-Body: {"distance_cm": 8.5}
-```
-
-**Arduino / ESP example:**
-```cpp
-// distance is from your ultrasonic (e.g. 8.5 cm)
-String url = SUPABASE_URL + "/rest/v1/sensor_states?sensor=eq.food_level";
-http.PATCH(url, "application/json", "{\"distance_cm\":" + String(distance, 1) + "}");
-```
+**Feed flow:** GET feed_commands → if row exists, run servo → DELETE that row → POST to feeding_events.
 
 ---
 
-### Bowl weight (every 30 seconds)
+### Examples (assuming SUPABASE_URL and SUPABASE_KEY are set)
 
-Send the weight in grams.
+**1. Food level (ultrasonic distance in cm):**
+```http
+PATCH https://abcdefgh.supabase.co/rest/v1/sensor_states?sensor=eq.food_level
+apikey: eyJhbGciOiJIUzI1NiIs...
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+Content-Type: application/json
 
-**Example request:**
+{"distance_cm": 8.5}
 ```
+
+```cpp
+// Arduino/ESP32 - every 30 seconds
+float distanceCm = readUltrasonic();  // your sensor
+String url = SUPABASE_URL + "/rest/v1/sensor_states?sensor=eq.food_level";
+http.addHeader("apikey", SUPABASE_KEY);
+http.addHeader("Authorization", "Bearer " + SUPABASE_KEY);
+http.addHeader("Content-Type", "application/json");
+http.PATCH(url, "{\"distance_cm\":" + String(distanceCm, 1) + "}");
+```
+
+**2. Bowl weight (grams):**
+```http
 PATCH https://abcdefgh.supabase.co/rest/v1/sensor_states?sensor=eq.weight
 
-Body: {"weight_grams": 95.2}
+{"weight_grams": 95.2}
 ```
 
-**Arduino / ESP example:**
 ```cpp
-// grams is from your load cell / scale
+float grams = readScale();  // your load cell
 String url = SUPABASE_URL + "/rest/v1/sensor_states?sensor=eq.weight";
 String body = "{\"weight_grams\":" + String(grams, 1) + "}";
-http.PATCH(url, "application/json", body);
+http.PATCH(url, body);
 ```
 
----
-
-### PIR motion (when cat is detected)
-
-Update when the PIR sensor triggers.
-
-**Example request:**
-```
+**3. PIR motion (when detected):**
+```http
 PATCH https://abcdefgh.supabase.co/rest/v1/sensor_states?sensor=eq.motion
 
-Body: {"last_motion_at": "2025-02-15T14:30:00Z"}
+{"last_motion_at": "2025-02-15T14:30:00Z"}
 ```
 
-**Arduino / ESP example:**
 ```cpp
-// When PIR fires:
-void onPIRDetected() {
+void onPIRTriggered() {
   String url = SUPABASE_URL + "/rest/v1/sensor_states?sensor=eq.motion";
-  String timestamp = "2025-02-15T14:30:00Z";  // or build from RTC/ntp
-  String body = "{\"last_motion_at\":\"" + timestamp + "\"}";
-  http.PATCH(url, "application/json", body);
+  String iso = getISOTimestamp();  // e.g. from NTP or RTC
+  String body = "{\"last_motion_at\":\"" + iso + "\"}";
+  http.PATCH(url, body);
 }
 ```
 
----
-
-### Feed command (check every few seconds)
-
-1. Check if there is a feed command
-2. If yes: run the feeder, delete the command, log the event
-
-**Example:**
-```
-1. GET https://abcdefgh.supabase.co/rest/v1/feed_commands?limit=1
-
-2. If you get a row:
-   - Run servo for portions
-   - DELETE that row (need the id)
-   - POST to feeding_events with {"portions": 1}
-```
-
-**Arduino / ESP example:**
+**4. Feed command (poll, then run feeder):**
 ```cpp
 void checkFeedCommand() {
-  // GET feed_commands
   String url = SUPABASE_URL + "/rest/v1/feed_commands?order=created_at.asc&limit=1";
-  String response = http.GET(url);
+  int code = http.GET(url);
+  if (code != 200) return;
   
-  if (response has rows) {
-    int portions = parsePortions(response);
+  String json = http.getString();
+  // Parse json: get first row's "id" and "portions"
+  if (hasRows(json)) {
+    String cmdId = parseId(json);
+    int portions = parsePortions(json);
     runFeeder(portions);
-    deleteFeedCommand(idFromResponse);
-    postFeedingEvent(portions);
+    
+    String delUrl = SUPABASE_URL + "/rest/v1/feed_commands?id=eq." + cmdId;
+    http.DELETE(delUrl);
+    
+    String postUrl = SUPABASE_URL + "/rest/v1/feeding_events";
+    http.POST(postUrl, "{\"portions\":" + String(portions) + "}");
   }
 }
 ```
@@ -174,13 +167,22 @@ void checkFeedCommand() {
 
 ## Step 5: Daily log (optional)
 
-Once per day, save a snapshot for the Logs tab.
+Once per day, POST a snapshot for the Logs tab.
 
-**Example:**
-```
+```http
 POST https://abcdefgh.supabase.co/rest/v1/sensor_daily_log
 
-Body: {"sensor": "food_level", "log_date": "2025-02-15", "distance_cm": 8.5}
+{"sensor": "food_level", "log_date": "2025-02-15", "distance_cm": 8.5}
+```
+
+```cpp
+// Call once per day (e.g. at midnight)
+void sendDailyLog() {
+  String date = getDateString();  // "2025-02-15"
+  float dist = readUltrasonic();
+  String body = "{\"sensor\":\"food_level\",\"log_date\":\"" + date + "\",\"distance_cm\":" + String(dist, 1) + "}";
+  http.POST(SUPABASE_URL + "/rest/v1/sensor_daily_log", body);
+}
 ```
 
 For weight: `{"sensor": "weight", "log_date": "2025-02-15", "weight_grams": 95.2}`  
