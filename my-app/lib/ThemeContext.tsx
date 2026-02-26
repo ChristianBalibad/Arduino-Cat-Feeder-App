@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { Theme } from './theme';
 
-const STORAGE_KEY = '@cat_feeder_theme';
+const STORAGE_KEY = '@timewchu_theme';
 
 type ThemeMode = 'light' | 'dark';
 

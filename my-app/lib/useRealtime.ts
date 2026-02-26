@@ -1,109 +1,104 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { supabase } from './supabase';
 import type { SensorState } from '../types/database';
 
-export function useRealtimeFoodLevel() {
-  const [latest, setLatest] = useState<{ distance_cm: number; created_at: string } | null>(null);
+const SENSOR_POLL_MS = 8000;
+
+function parseFoodLevel(data: unknown): { distance_cm: number; created_at: string } | null {
+  const d = data as { distance_cm?: number; updated_at?: string };
+  if (d?.distance_cm != null) return { distance_cm: d.distance_cm, created_at: d.updated_at! };
+  return null;
+}
+
+function parseWeight(data: unknown): { weight_grams: number; created_at: string } | null {
+  const d = data as { weight_grams?: number; updated_at?: string };
+  if (d?.weight_grams != null) return { weight_grams: d.weight_grams, created_at: d.updated_at! };
+  return null;
+}
+
+function parseMotion(data: unknown): { created_at: string } | null {
+  const d = data as { last_motion_at?: string };
+  if (d?.last_motion_at) return { created_at: d.last_motion_at };
+  return null;
+}
+
+function useSensorState<T>(sensor: string, select: string, parse: (data: unknown) => T | null) {
+  const [latest, setLatest] = useState<T | null>(null);
+
+  const load = useCallback(async () => {
+    const { data } = await supabase
+      .from('sensor_states')
+      .select(select)
+      .eq('sensor', sensor)
+      .single();
+    const parsed = parse(data);
+    if (parsed) setLatest(parsed);
+  }, [sensor, select]);
 
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('sensor_states')
-        .select('distance_cm, updated_at')
-        .eq('sensor', 'food_level')
-        .single();
-      if (data?.distance_cm != null) {
-        setLatest({ distance_cm: data.distance_cm, created_at: data.updated_at });
-      }
-    };
     load();
 
     const channel = supabase
-      .channel('sensor_states_food')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sensor_states', filter: 'sensor=eq.food_level' }, (payload) => {
-        const row = payload.new as SensorState;
-        if (row.distance_cm != null) {
-          setLatest({ distance_cm: row.distance_cm, created_at: row.updated_at });
-        }
+      .channel(`sensor_states_${sensor}`)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sensor_states', filter: `sensor=eq.${sensor}` }, (payload) => {
+        const parsed = parse(payload.new as SensorState);
+        if (parsed) setLatest(parsed);
       })
       .subscribe();
 
+    const interval = setInterval(load, SENSOR_POLL_MS);
+
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
-  }, []);
+  }, [load, sensor]);
 
   return latest;
+}
+
+export function useRealtimeFoodLevel() {
+  return useSensorState('food_level', 'distance_cm, updated_at', parseFoodLevel);
 }
 
 export function useRealtimeWeight() {
-  const [latest, setLatest] = useState<{ weight_grams: number; created_at: string } | null>(null);
-
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('sensor_states')
-        .select('weight_grams, updated_at')
-        .eq('sensor', 'weight')
-        .single();
-      if (data?.weight_grams != null) {
-        setLatest({ weight_grams: data.weight_grams, created_at: data.updated_at });
-      }
-    };
-    load();
-
-    const channel = supabase
-      .channel('sensor_states_weight')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sensor_states', filter: 'sensor=eq.weight' }, (payload) => {
-        const row = payload.new as SensorState;
-        if (row.weight_grams != null) {
-          setLatest({ weight_grams: row.weight_grams, created_at: row.updated_at });
-        }
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
-
-  return latest;
+  return useSensorState('weight', 'weight_grams, updated_at', parseWeight);
 }
 
 export function useRealtimeMotion() {
-  const [latest, setLatest] = useState<{ created_at: string } | null>(null);
+  return useSensorState('motion', 'last_motion_at', parseMotion);
+}
+
+const FEEDING_POLL_MS = 5000;
+
+export function useRealtimeFeedingToday() {
+  const [count, setCount] = useState(0);
+
+  const load = useCallback(async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from('feeding_events')
+      .select('portions')
+      .gte('created_at', today);
+    const total = (data || []).reduce((s, r) => s + (r.portions || 0), 0);
+    setCount(total);
+  }, []);
 
   useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase
-        .from('sensor_states')
-        .select('last_motion_at, updated_at')
-        .eq('sensor', 'motion')
-        .single();
-      if (data?.last_motion_at) {
-        setLatest({ created_at: data.last_motion_at });
-      } else if (data?.updated_at) {
-        setLatest({ created_at: data.updated_at });
-      }
-    };
     load();
 
     const channel = supabase
-      .channel('sensor_states_motion')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'sensor_states', filter: 'sensor=eq.motion' }, (payload) => {
-        const row = payload.new as SensorState;
-        if (row.last_motion_at) {
-          setLatest({ created_at: row.last_motion_at });
-        } else if (row.updated_at) {
-          setLatest({ created_at: row.updated_at });
-        }
-      })
+      .channel('feeding_events_insert')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feeding_events' }, load)
       .subscribe();
+
+    const interval = setInterval(load, FEEDING_POLL_MS);
 
     return () => {
       supabase.removeChannel(channel);
+      clearInterval(interval);
     };
-  }, []);
+  }, [load]);
 
-  return latest;
+  return { count, refresh: load };
 }

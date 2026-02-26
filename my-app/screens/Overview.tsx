@@ -13,7 +13,7 @@ import {
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../lib/supabase';
 import { useTheme } from '../lib/ThemeContext';
-import { useRealtimeFoodLevel, useRealtimeMotion, useRealtimeWeight } from '../lib/useRealtime';
+import { useRealtimeFeedingToday, useRealtimeFoodLevel, useRealtimeMotion, useRealtimeWeight } from '../lib/useRealtime';
 
 const FOOD_EMPTY_CM = 25;
 const FOOD_FULL_CM = 4;
@@ -46,27 +46,13 @@ export default function Overview() {
   const foodLevel = useRealtimeFoodLevel();
   const weight = useRealtimeWeight();
   const motion = useRealtimeMotion();
-  const [feedingToday, setFeedingToday] = useState(0);
+  const { count: feedingToday, refresh } = useRealtimeFeedingToday();
   const [refreshing, setRefreshing] = useState(false);
   const [feeding, setFeeding] = useState(false);
 
-  const loadFeeding = async () => {
-    const today = new Date().toISOString().slice(0, 10);
-    const { data } = await supabase
-      .from('feeding_events')
-      .select('portions')
-      .gte('created_at', today);
-    const total = (data || []).reduce((s, r) => s + (r.portions || 0), 0);
-    setFeedingToday(total);
-  };
-
-  useEffect(() => {
-    loadFeeding();
-  }, []);
-
-  const refresh = async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
-    await loadFeeding();
+    await refresh();
     setRefreshing(false);
   };
 
@@ -76,9 +62,7 @@ export default function Overview() {
     setFeeding(false);
     if (error) {
       Alert.alert('Failed', error.message);
-      return;
     }
-    await loadFeeding();
   };
 
   const foodPct = foodLevel ? foodLevelPercent(foodLevel.distance_cm) : 0;
@@ -89,7 +73,7 @@ export default function Overview() {
       style={[styles.container, { backgroundColor: theme.background }]}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[theme.primary]} tintColor={theme.primary} />
+        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} tintColor={theme.primary} />
       }
     >
       <View style={styles.hero}>

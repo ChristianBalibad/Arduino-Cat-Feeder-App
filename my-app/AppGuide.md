@@ -46,6 +46,7 @@ In SQL Editor, run:
 
 ```sql
 alter publication supabase_realtime add table sensor_states;
+alter publication supabase_realtime add table feeding_events;
 ```
 
 ---
@@ -77,8 +78,8 @@ All requests: add headers `apikey`, `Authorization: Bearer (key)`, `Content-Type
 
 | When | Method | URL | Body |
 |------|--------|-----|------|
-| Every 30s | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.food_level` | `{"distance_cm": 8.5}` |
-| Every 30s | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.weight` | `{"weight_grams": 95.2}` |
+| Every 5–10s | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.food_level` | `{"distance_cm": 8.5}` |
+| Every 5–10s | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.weight` | `{"weight_grams": 95.2}` |
 | When PIR detects | PATCH | `{URL}/rest/v1/sensor_states?sensor=eq.motion` | `{"last_motion_at": "2025-02-15T14:30:00Z"}` |
 | Every few sec | GET | `{URL}/rest/v1/feed_commands?limit=1` | — |
 | When feeder runs | POST | `{URL}/rest/v1/feeding_events` | `{"portions": 1}` |
@@ -90,7 +91,8 @@ All requests: add headers `apikey`, `Authorization: Bearer (key)`, `Content-Type
 
 ### Examples (assuming SUPABASE_URL and SUPABASE_KEY are set)
 
-**1. Food level (ultrasonic distance in cm):**
+**1. Food level (ultrasonic distance in cm)** – send every 5–10 seconds for snappier app updates:
+
 ```http
 PATCH https://abcdefgh.supabase.co/rest/v1/sensor_states?sensor=eq.food_level
 apikey: eyJhbGciOiJIUzI1NiIs...
@@ -101,7 +103,7 @@ Content-Type: application/json
 ```
 
 ```cpp
-// Arduino/ESP32 - every 30 seconds
+// Arduino/ESP32 - every 5-10 seconds for responsive app updates
 float distanceCm = readUltrasonic();  // your sensor
 String url = SUPABASE_URL + "/rest/v1/sensor_states?sensor=eq.food_level";
 http.addHeader("apikey", SUPABASE_KEY);
@@ -196,9 +198,9 @@ For motion: `{"sensor": "motion", "log_date": "2025-02-15", "motion_count": 12}`
 |------|-------|-----|
 | 1 | `lib/config.ts` | Add supabaseUrl and supabasePublishableKey |
 | 2 | Supabase SQL Editor | Run sensor_states.sql, feed_commands.sql |
-| 2 | Supabase SQL Editor | Run `alter publication supabase_realtime add table sensor_states` |
+| 2 | Supabase SQL Editor | Run `alter publication supabase_realtime add table sensor_states` and `add table feeding_events` |
 | 3 | ESP code | Save SUPABASE_URL and SUPABASE_KEY |
-| 4 | ESP loop | PATCH food_level every 30s |
-| 4 | ESP loop | PATCH weight every 30s |
+| 4 | ESP loop | PATCH food_level every 5–10s |
+| 4 | ESP loop | PATCH weight every 5–10s |
 | 4 | ESP (PIR callback) | PATCH motion when detected |
 | 4 | ESP loop | Poll feed_commands, run feeder, delete, POST feeding_events |

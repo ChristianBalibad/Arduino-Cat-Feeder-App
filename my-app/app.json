@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "my-app",
+    "name": "Timewchu",
     "slug": "my-app",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -21,7 +21,7 @@
         "backgroundColor": "#c45c26"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.catfeederchristianbalibad.myapp"
+      "package": "com.timewchu.app"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -30,6 +30,9 @@
       "eas": {
         "projectId": "7329f33c-e6dd-480f-9562-2d6e659593c3"
       }
-    }
+    },
+    "plugins": [
+      "expo-font"
+    ]
   }
 }

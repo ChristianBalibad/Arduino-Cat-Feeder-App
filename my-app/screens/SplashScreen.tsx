@@ -28,7 +28,7 @@ export default function SplashScreen() {
         <View style={[styles.logo, { backgroundColor: theme.primary }]}>
           <Ionicons name="paw" size={40} color="#fff" />
         </View>
-        <Text style={[styles.title, { color: theme.text }]}>Cat Feeder</Text>
+        <Text style={[styles.title, { color: theme.text }]}>Timewchu</Text>
         <Text style={[styles.subtitle, { color: theme.textMuted }]}>Live monitoring</Text>
       </Animated.View>
       <View style={styles.loader}>

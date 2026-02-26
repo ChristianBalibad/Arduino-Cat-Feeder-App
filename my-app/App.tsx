@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createDrawerNavigator, DrawerContentScrollView } from '@react-navigation/drawer';
 import { getFocusedRouteNameFromRoute } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from './lib/supabase';
 import { theme } from './lib/theme';
@@ -25,6 +26,7 @@ type ConnectionStatus = 'splash' | 'connecting' | 'connected' | 'error';
 
 function TabNavigator() {
   const { theme: t } = useTheme();
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={{
@@ -36,7 +38,8 @@ function TabNavigator() {
           borderTopColor: t.border,
           borderTopWidth: 1,
           paddingTop: 8,
-          height: 60,
+          paddingBottom: Math.max(insets.bottom, 8),
+          height: 60 + Math.max(insets.bottom, 8),
         },
         tabBarLabelStyle: { fontSize: 12, fontWeight: '500' },
       }}
@@ -98,9 +101,9 @@ function CustomDrawerContent(props: any) {
       contentContainerStyle={drawerStyles.content}
     >
       <View style={[drawerStyles.header, { borderBottomColor: t.border }]}>
-        <View style={[drawerStyles.logo, { backgroundColor: t.primary }]} />
-        <Text style={[drawerStyles.title, { color: t.text }]}>Cat Feeder</Text>
-        <Text style={[drawerStyles.subtitle, { color: t.textMuted }]}>Live monitoring</Text>
+        <Image source={require('./assets/icon.png')} style={drawerStyles.logo} resizeMode="cover" />
+        <Text style={[drawerStyles.title, { color: t.text }]}>Timewchu</Text>
+        <Text style={[drawerStyles.subtitle, { color: t.textMuted }]}>Cat Feeder Monitoring</Text>
       </View>
       {drawerItems.map((item) => {
         const isActive = currentRoute === 'Main' && currentTab === item.screen;

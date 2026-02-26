@@ -33,7 +33,7 @@ export default function FeedingHistory() {
     setTotalPortions(events.reduce((s, r) => s + (r.portions || 0), 0));
   }, []);
 
-  const refresh = async () => {
+  const onRefresh = async () => {
     setRefreshing(true);
     await load();
     setRefreshing(false);
@@ -41,6 +41,15 @@ export default function FeedingHistory() {
 
   useEffect(() => {
     load().finally(() => setLoading(false));
+
+    const channel = supabase
+      .channel('feeding_events_list')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'feeding_events' }, load)
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [load]);
 
   if (loading && list.length === 0) {
@@ -76,7 +85,7 @@ export default function FeedingHistory() {
         data={list}
         keyExtractor={(item) => item.id}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={refresh} colors={[theme.primary]} tintColor={theme.primary} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.primary]} tintColor={theme.primary} />
         }
         contentContainerStyle={list.length === 0 ? styles.empty : styles.list}
         ListEmptyComponent={
