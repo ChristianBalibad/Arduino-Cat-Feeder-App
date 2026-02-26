@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { theme } from '../lib/theme';
 
 export default function SplashScreen() {
@@ -24,7 +25,9 @@ export default function SplashScreen() {
   return (
     <Animated.View style={[styles.container, { backgroundColor: theme.background, opacity }]}>
       <Animated.View style={[styles.content, { transform: [{ scale }] }]}>
-        <View style={[styles.logo, { backgroundColor: theme.primary }]} />
+        <View style={[styles.logo, { backgroundColor: theme.primary }]}>
+          <Ionicons name="paw" size={40} color="#fff" />
+        </View>
         <Text style={[styles.title, { color: theme.text }]}>Cat Feeder</Text>
         <Text style={[styles.subtitle, { color: theme.textMuted }]}>Live monitoring</Text>
       </Animated.View>
@@ -51,6 +54,8 @@ const styles = StyleSheet.create({
     height: 72,
     borderRadius: 20,
     marginBottom: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   title: {
     fontSize: 26,
